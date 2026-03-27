@@ -411,6 +411,7 @@ async function runQuery(
         'NotebookEdit',
         'mcp__nanoclaw__*',
         'mcp__gmail__*',
+        'mcp__icloud__*',
       ],
       env: sdkEnv,
       permissionMode: 'bypassPermissions',
@@ -429,6 +430,20 @@ async function runQuery(
         gmail: {
           command: 'npx',
           args: ['-y', '@gongrzhe/server-gmail-autoauth-mcp'],
+        },
+        icloud: {
+          command: 'npx',
+          args: ['-y', 'mcp-mail-server'],
+          env: {
+            IMAP_HOST: 'imap.mail.me.com',
+            IMAP_PORT: '993',
+            IMAP_SECURE: 'true',
+            SMTP_HOST: 'smtp.mail.me.com',
+            SMTP_PORT: '587',
+            SMTP_SECURE: 'true',
+            EMAIL_USER: process.env.ICLOUD_EMAIL || '',
+            EMAIL_PASS: process.env.ICLOUD_APP_PASSWORD || '',
+          },
         },
       },
       hooks: {

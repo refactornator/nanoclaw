@@ -6,6 +6,9 @@
 // gmail
 import './gmail.js';
 
+// icloud
+import './icloud.js';
+
 // slack
 
 // telegram

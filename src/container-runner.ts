@@ -27,6 +27,7 @@ import {
   stopContainer,
 } from './container-runtime.js';
 import { detectAuthMode } from './credential-proxy.js';
+import { readEnvFile } from './env.js';
 import { validateAdditionalMounts } from './mount-security.js';
 import { RegisteredGroup } from './types.js';
 
@@ -252,6 +253,16 @@ function buildContainerArgs(
     args.push('-e', 'ANTHROPIC_API_KEY=placeholder');
   } else {
     args.push('-e', 'CLAUDE_CODE_OAUTH_TOKEN=placeholder');
+  }
+
+  // Pass iCloud credentials for the MCP mail server inside the container
+  const icloudEnv = readEnvFile(['ICLOUD_EMAIL', 'ICLOUD_APP_PASSWORD']);
+  const icloudEmail = process.env.ICLOUD_EMAIL || icloudEnv.ICLOUD_EMAIL;
+  const icloudPass =
+    process.env.ICLOUD_APP_PASSWORD || icloudEnv.ICLOUD_APP_PASSWORD;
+  if (icloudEmail && icloudPass) {
+    args.push('-e', `ICLOUD_EMAIL=${icloudEmail}`);
+    args.push('-e', `ICLOUD_APP_PASSWORD=${icloudPass}`);
   }
 
   // Runtime-specific args for host gateway resolution

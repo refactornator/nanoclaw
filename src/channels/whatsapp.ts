@@ -127,8 +127,18 @@ export class WhatsAppChannel implements Channel {
         this.connected = true;
         logger.info('Connected to WhatsApp');
 
-        // Announce availability so WhatsApp relays subsequent presence updates (typing indicators)
-        this.sock.sendPresenceUpdate('available').catch((err) => {
+        // Ensure me.name is set in auth creds — Baileys checks authState.creds.me.name
+        // for presence updates (typing indicators). It's not populated during initial auth.
+        if (state.creds.me && !state.creds.me.name) {
+          state.creds.me.name = ASSISTANT_NAME;
+          saveCreds();
+        }
+
+        // Mark as unavailable so WhatsApp doesn't suppress phone notifications.
+        // When a linked device is "available", WhatsApp treats messages as read
+        // and clears notifications on the phone. "unavailable" keeps messages
+        // arriving via the socket but preserves phone notifications.
+        this.sock.sendPresenceUpdate('unavailable').catch((err) => {
           logger.warn({ err }, 'Failed to send presence update');
         });
 
@@ -292,7 +302,8 @@ export class WhatsAppChannel implements Channel {
   async setTyping(jid: string, isTyping: boolean): Promise<void> {
     try {
       const status = isTyping ? 'composing' : 'paused';
-      logger.debug({ jid, status }, 'Sending presence update');
+      // Must subscribe to chat presence before sending typing indicators
+      await this.sock.presenceSubscribe(jid);
       await this.sock.sendPresenceUpdate(status, jid);
     } catch (err) {
       logger.debug({ jid, err }, 'Failed to update typing status');
