@@ -62,8 +62,10 @@ vi.mock('./container-runtime.js', () => ({
 
 // Mock group-folder
 vi.mock('./group-folder.js', () => ({
-  resolveGroupFolderPath: (folder: string) => `/tmp/nanoclaw-test-groups/${folder}`,
-  resolveGroupIpcPath: (folder: string) => `/tmp/nanoclaw-test-data/ipc/${folder}`,
+  resolveGroupFolderPath: (folder: string) =>
+    `/tmp/nanoclaw-test-groups/${folder}`,
+  resolveGroupIpcPath: (folder: string) =>
+    `/tmp/nanoclaw-test-data/ipc/${folder}`,
 }));
 
 // Mock credential-proxy
@@ -86,7 +88,6 @@ vi.mock('@onecli-sh/sdk', () => ({
       .mockResolvedValue({ name: 'test', identifier: 'test', created: true });
   },
 }));
-
 
 // Create a controllable fake ChildProcess
 function createFakeProcess() {

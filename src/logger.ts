@@ -70,6 +70,11 @@ export const logger = {
     log('error', dataOrMsg, msg),
   fatal: (dataOrMsg: Record<string, unknown> | string, msg?: string) =>
     log('fatal', dataOrMsg, msg),
+  // Baileys (WhatsApp library) expects a pino-compatible logger with .child() and .trace()
+  trace: (dataOrMsg: Record<string, unknown> | string, msg?: string) =>
+    log('debug', dataOrMsg, msg),
+  child: () => logger,
+  level: 'info',
 };
 
 // Route uncaught errors through logger so they get timestamps in stderr
