@@ -383,6 +383,35 @@ async function runQuery(
   lastAssistantUuid?: string;
   closedDuringQuery: boolean;
 }> {
+  const mcpServers = {
+    nanoclaw: {
+      command: 'node',
+      args: [mcpServerPath],
+      env: {
+        NANOCLAW_CHAT_JID: containerInput.chatJid,
+        NANOCLAW_GROUP_FOLDER: containerInput.groupFolder,
+        NANOCLAW_IS_MAIN: containerInput.isMain ? '1' : '0',
+      },
+    },
+  };
+
+  // Invalidate session if MCP server config changed since it was created.
+  // The SDK resumes sessions with the original MCP config, so servers added
+  // after session creation (e.g. via skills) won't be available. We compare
+  // a fingerprint of the current MCP server names against the previous run
+  // and skip resume when they differ.
+  const mcpFingerprint = Object.keys(mcpServers).sort().join(',');
+  const fpPath = '/home/node/.claude/.mcp-fingerprint';
+  fs.mkdirSync(path.dirname(fpPath), { recursive: true });
+  if (sessionId && fs.existsSync(fpPath)) {
+    const prev = fs.readFileSync(fpPath, 'utf-8').trim();
+    if (prev !== mcpFingerprint) {
+      log(`MCP config changed ("${prev}" → "${mcpFingerprint}"), starting fresh session`);
+      sessionId = undefined;
+    }
+  }
+  fs.writeFileSync(fpPath, mcpFingerprint);
+
   const stream = new MessageStream();
   stream.push(prompt);
 
@@ -474,17 +503,7 @@ async function runQuery(
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
       settingSources: ['project', 'user'],
-      mcpServers: {
-        nanoclaw: {
-          command: 'node',
-          args: [mcpServerPath],
-          env: {
-            NANOCLAW_CHAT_JID: containerInput.chatJid,
-            NANOCLAW_GROUP_FOLDER: containerInput.groupFolder,
-            NANOCLAW_IS_MAIN: containerInput.isMain ? '1' : '0',
-          },
-        },
-      },
+      mcpServers,
       hooks: {
         PreCompact: [
           { hooks: [createPreCompactHook(containerInput.assistantName)] },
@@ -629,6 +648,7 @@ async function main(): Promise<void> {
   const mcpServerPath = path.join(__dirname, 'ipc-mcp-stdio.js');
 
   let sessionId = containerInput.sessionId;
+
   fs.mkdirSync(IPC_INPUT_DIR, { recursive: true });
 
   // Clean up stale _close sentinel from previous container runs
