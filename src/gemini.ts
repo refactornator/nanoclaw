@@ -18,7 +18,9 @@ export async function analyzeImage(
 ): Promise<string | null> {
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-1.5-flash-latest',
+    });
 
     const prompt = caption
       ? `Describe this image in detail. The sender included this caption: "${caption}"`
@@ -54,7 +56,9 @@ export async function analyzeVideo(
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-1.5-flash-latest',
+    });
 
     const prompt = caption
       ? `Describe this video in detail. The sender included this caption: "${caption}"`

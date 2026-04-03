@@ -65,7 +65,10 @@ describe('gemini', () => {
       });
 
       const { analyzeImage } = await import('./gemini.js');
-      const result = await analyzeImage(Buffer.from('fake-image'), 'image/jpeg');
+      const result = await analyzeImage(
+        Buffer.from('fake-image'),
+        'image/jpeg',
+      );
 
       expect(result).toBe('A cat sitting on a table');
       expect(mockGenerateContent).toHaveBeenCalledWith([
