@@ -10,6 +10,7 @@ import './gmail.js';
 import './icloud.js';
 
 // slack
+import './slack.js';
 
 // telegram
 
