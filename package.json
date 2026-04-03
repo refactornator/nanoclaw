@@ -21,6 +21,10 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@onecli-sh/sdk": "^0.2.0",
+    "@slack/bolt": "^4.3.0",
+    "@slack/types": "^2.15.0",
     "@types/imapflow": "^1.0.23",
     "@whiskeysockets/baileys": "^6.7.16",
     "better-sqlite3": "11.10.0",
