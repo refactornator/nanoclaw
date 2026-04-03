@@ -90,8 +90,8 @@ describe('gemini wrapper', () => {
     });
     expect(mockGenerateContent).toHaveBeenCalledWith([
       {
-        text: expect.stringContaining(
-          'Caption/context from sender: Scenic beach',
+        text: expect.stringMatching(
+          /Describe this image for a chat assistant in detail.*Caption\/context from sender: Scenic beach/s,
         ),
       },
       {
@@ -101,6 +101,35 @@ describe('gemini wrapper', () => {
         },
       },
     ]);
+    expect(mockGenerateContent.mock.calls[0]?.[0]?.[0]).toEqual(
+      expect.objectContaining({
+        text: expect.not.stringContaining('Keep it concise'),
+      }),
+    );
+  });
+
+  it('uses a detailed prompt for video analysis', async () => {
+    mockEnv.GEMINI_API_KEY = 'test-key';
+    mockGenerateContent.mockResolvedValue({
+      response: {
+        text: vi.fn().mockReturnValue('A person walks through a park.'),
+      },
+    });
+
+    await analyzeVideo(Buffer.from('video-bytes'), 'video/mp4', 'Park walk');
+
+    expect(mockGenerateContent.mock.calls[0]?.[0]?.[0]).toEqual(
+      expect.objectContaining({
+        text: expect.stringContaining(
+          'Describe this video for a chat assistant in detail',
+        ),
+      }),
+    );
+    expect(mockGenerateContent.mock.calls[0]?.[0]?.[0]).toEqual(
+      expect.objectContaining({
+        text: expect.not.stringContaining('Keep it concise'),
+      }),
+    );
   });
 
   it('returns an oversized-video fallback without calling Gemini', async () => {
