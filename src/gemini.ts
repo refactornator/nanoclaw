@@ -23,8 +23,8 @@ function readGeminiConfig(): { apiKey: string; maxVideoMb: number } {
 function buildPrompt(kind: 'image' | 'video', caption?: string): string {
   const prompt =
     kind === 'image'
-      ? 'Describe this image for a chat assistant. Keep it concise and focus on the most relevant visible details.'
-      : 'Describe this video for a chat assistant. Keep it concise and focus on the most relevant visible actions and details.';
+      ? 'Describe this image for a chat assistant in detail and focus on the most relevant visible details.'
+      : 'Describe this video for a chat assistant in detail and focus on the most relevant visible actions and details.';
 
   const trimmedCaption = caption?.trim();
   if (!trimmedCaption) return prompt;

@@ -43,8 +43,8 @@ import { registerChannel, ChannelOpts } from './registry.js';
 
 const GROUP_SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const VIDEO_GEMINI_DISABLED_MESSAGE =
-  '[Video analysis unavailable: Gemini is not configured]';
-const VIDEO_ANALYSIS_FAILED_MESSAGE = '[Video analysis failed]';
+  '[Video - no analysis (GEMINI_API_KEY not set)]';
+const VIDEO_ANALYSIS_FAILED_MESSAGE = '[Video - processing failed]';
 
 function appendSupplementalLine(content: string, line: string): string {
   const trimmedContent = content.trim();
@@ -294,7 +294,7 @@ export class WhatsAppChannel implements Channel {
                     '[Video analysis unavailable:',
                   )
                     ? analysis
-                    : `[Gemini Video Analysis: ${analysis}]`;
+                    : `[Video Analysis: ${analysis}]`;
                   content = appendSupplementalLine(videoCaption, videoLine);
                 } else {
                   content = appendSupplementalLine(
@@ -316,7 +316,7 @@ export class WhatsAppChannel implements Channel {
           // but allow voice messages through for transcription.
           // Video messages are processed before this guard so they can emit
           // analysis or fallback text even without a caption.
-          if (!content && !isVoiceMessage(msg)) continue;
+          if (!content && !isVoiceMessage(msg) && !msg.message?.videoMessage) continue;
 
           const sender = msg.key.participant || msg.key.remoteJid || '';
           const senderName = msg.pushName || sender.split('@')[0];

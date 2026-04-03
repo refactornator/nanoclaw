@@ -542,7 +542,7 @@ describe('WhatsAppChannel', () => {
         'registered@g.us',
         expect.objectContaining({
           content:
-            'Watch this\n[Video analysis unavailable: Gemini is not configured]',
+            'Watch this\n[Video - no analysis (GEMINI_API_KEY not set)]',
         }),
       );
     });
@@ -954,7 +954,7 @@ describe('WhatsAppChannel', () => {
         'registered@g.us',
         expect.objectContaining({
           content:
-            'Watch this\n[Gemini Video Analysis: A skateboard trick lands.]',
+            'Watch this\n[Video Analysis: A skateboard trick lands.]',
         }),
       );
     });
@@ -987,7 +987,7 @@ describe('WhatsAppChannel', () => {
       expect(opts.onMessage).toHaveBeenCalledWith(
         'registered@g.us',
         expect.objectContaining({
-          content: '[Video analysis unavailable: Gemini is not configured]',
+          content: '[Video - no analysis (GEMINI_API_KEY not set)]',
         }),
       );
     });
@@ -1024,7 +1024,7 @@ describe('WhatsAppChannel', () => {
       expect(opts.onMessage).toHaveBeenCalledWith(
         'registered@g.us',
         expect.objectContaining({
-          content: 'Oops\n[Video analysis failed]',
+          content: 'Oops\n[Video - processing failed]',
         }),
       );
     });
