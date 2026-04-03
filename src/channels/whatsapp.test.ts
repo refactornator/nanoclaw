@@ -48,6 +48,13 @@ vi.mock('../image.js', () => ({
   }),
 }));
 
+// Mock Gemini module
+vi.mock('../gemini.js', () => ({
+  isGeminiEnabled: vi.fn().mockReturnValue(false),
+  analyzeImage: vi.fn().mockResolvedValue(null),
+  analyzeVideo: vi.fn().mockResolvedValue(null),
+}));
+
 // Mock fs
 vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof import('fs')>('fs');
@@ -126,6 +133,8 @@ vi.mock('@whiskeysockets/baileys', () => {
 import { WhatsAppChannel, WhatsAppChannelOpts } from './whatsapp.js';
 import { downloadMediaMessage } from '@whiskeysockets/baileys';
 import { getLastGroupSync, updateChatName, setLastGroupSync } from '../db.js';
+import { analyzeImage, analyzeVideo, isGeminiEnabled } from '../gemini.js';
+import { logger } from '../logger.js';
 import { transcribeAudioMessage } from '../transcription.js';
 import { isImageMessage, processImage } from '../image.js';
 
@@ -172,8 +181,12 @@ async function triggerMessages(messages: unknown[]) {
 
 describe('WhatsAppChannel', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     fakeSocket = createFakeSocket();
     vi.mocked(getLastGroupSync).mockReturnValue(null);
+    vi.mocked(isGeminiEnabled).mockReturnValue(false);
+    vi.mocked(analyzeImage).mockResolvedValue(null);
+    vi.mocked(analyzeVideo).mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -503,7 +516,7 @@ describe('WhatsAppChannel', () => {
       );
     });
 
-    it('extracts caption from videoMessage', async () => {
+    it('preserves caption in the disabled-Gemini video fallback', async () => {
       const opts = createTestOpts();
       const channel = new WhatsAppChannel(opts);
 
@@ -527,7 +540,10 @@ describe('WhatsAppChannel', () => {
 
       expect(opts.onMessage).toHaveBeenCalledWith(
         'registered@g.us',
-        expect.objectContaining({ content: 'Watch this' }),
+        expect.objectContaining({
+          content:
+            'Watch this\n[Video - no analysis (GEMINI_API_KEY not set)]',
+        }),
       );
     });
 
@@ -685,6 +701,97 @@ describe('WhatsAppChannel', () => {
 
       expect(downloadMediaMessage).toHaveBeenCalled();
       expect(processImage).toHaveBeenCalled();
+      expect(analyzeImage).not.toHaveBeenCalled();
+      expect(opts.onMessage).toHaveBeenCalledWith(
+        'registered@g.us',
+        expect.objectContaining({
+          content: '[Image: attachments/test.jpg]',
+        }),
+      );
+
+      vi.mocked(isImageMessage).mockReturnValue(false);
+    });
+
+    it('appends Gemini image analysis when available', async () => {
+      vi.mocked(isImageMessage).mockReturnValue(true);
+      vi.mocked(isGeminiEnabled).mockReturnValue(true);
+      vi.mocked(analyzeImage).mockResolvedValueOnce(
+        'A cat sleeping on a couch.',
+      );
+
+      const opts = createTestOpts();
+      const channel = new WhatsAppChannel(opts);
+
+      await connectChannel(channel);
+
+      await triggerMessages([
+        {
+          key: {
+            id: 'msg-img-gemini-1',
+            remoteJid: 'registered@g.us',
+            participant: '5551234@s.whatsapp.net',
+            fromMe: false,
+          },
+          message: {
+            imageMessage: {
+              caption: 'Check this',
+              mimetype: 'image/jpeg',
+            },
+          },
+          pushName: 'Alice',
+          messageTimestamp: Math.floor(Date.now() / 1000),
+        },
+      ]);
+
+      expect(analyzeImage).toHaveBeenCalledWith(
+        expect.any(Buffer),
+        'image/jpeg',
+        'Check this',
+      );
+      expect(opts.onMessage).toHaveBeenCalledWith(
+        'registered@g.us',
+        expect.objectContaining({
+          content:
+            '[Image: attachments/test.jpg]\n[Gemini Image Analysis: A cat sleeping on a couch.]',
+        }),
+      );
+
+      vi.mocked(isImageMessage).mockReturnValue(false);
+    });
+
+    it('logs and preserves image content when Gemini image analysis throws', async () => {
+      vi.mocked(isImageMessage).mockReturnValue(true);
+      vi.mocked(isGeminiEnabled).mockReturnValue(true);
+      vi.mocked(analyzeImage).mockRejectedValueOnce(new Error('Gemini blocked'));
+
+      const opts = createTestOpts();
+      const channel = new WhatsAppChannel(opts);
+
+      await connectChannel(channel);
+
+      await triggerMessages([
+        {
+          key: {
+            id: 'msg-img-gemini-2',
+            remoteJid: 'registered@g.us',
+            participant: '5551234@s.whatsapp.net',
+            fromMe: false,
+          },
+          message: {
+            imageMessage: {
+              caption: 'Still send it',
+              mimetype: 'image/jpeg',
+            },
+          },
+          pushName: 'Alice',
+          messageTimestamp: Math.floor(Date.now() / 1000),
+        },
+      ]);
+
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ err: expect.any(Error), jid: 'registered@g.us' }),
+        'Image - Gemini analysis failed',
+      );
       expect(opts.onMessage).toHaveBeenCalledWith(
         'registered@g.us',
         expect.objectContaining({
@@ -811,6 +918,115 @@ describe('WhatsAppChannel', () => {
       );
 
       vi.mocked(isImageMessage).mockReturnValue(false);
+    });
+
+    it('appends Gemini video analysis when available', async () => {
+      vi.mocked(isGeminiEnabled).mockReturnValue(true);
+      vi.mocked(analyzeVideo).mockResolvedValueOnce('A skateboard trick lands.');
+
+      const opts = createTestOpts();
+      const channel = new WhatsAppChannel(opts);
+
+      await connectChannel(channel);
+
+      await triggerMessages([
+        {
+          key: {
+            id: 'msg-video-1',
+            remoteJid: 'registered@g.us',
+            participant: '5551234@s.whatsapp.net',
+            fromMe: false,
+          },
+          message: {
+            videoMessage: { caption: 'Watch this', mimetype: 'video/mp4' },
+          },
+          pushName: 'Eve',
+          messageTimestamp: Math.floor(Date.now() / 1000),
+        },
+      ]);
+
+      expect(analyzeVideo).toHaveBeenCalledWith(
+        expect.any(Buffer),
+        'video/mp4',
+        'Watch this',
+      );
+      expect(opts.onMessage).toHaveBeenCalledWith(
+        'registered@g.us',
+        expect.objectContaining({
+          content:
+            'Watch this\n[Video Analysis: A skateboard trick lands.]',
+        }),
+      );
+    });
+
+    it('delivers a safe fallback for video messages when Gemini is disabled', async () => {
+      vi.mocked(isGeminiEnabled).mockReturnValue(false);
+
+      const opts = createTestOpts();
+      const channel = new WhatsAppChannel(opts);
+
+      await connectChannel(channel);
+
+      await triggerMessages([
+        {
+          key: {
+            id: 'msg-video-2',
+            remoteJid: 'registered@g.us',
+            participant: '5551234@s.whatsapp.net',
+            fromMe: false,
+          },
+          message: {
+            videoMessage: { mimetype: 'video/mp4' },
+          },
+          pushName: 'Eve',
+          messageTimestamp: Math.floor(Date.now() / 1000),
+        },
+      ]);
+
+      expect(analyzeVideo).not.toHaveBeenCalled();
+      expect(opts.onMessage).toHaveBeenCalledWith(
+        'registered@g.us',
+        expect.objectContaining({
+          content: '[Video - no analysis (GEMINI_API_KEY not set)]',
+        }),
+      );
+    });
+
+    it('falls back safely when video processing errors occur', async () => {
+      vi.mocked(isGeminiEnabled).mockReturnValue(true);
+      vi.mocked(analyzeVideo).mockRejectedValueOnce(new Error('Gemini blocked'));
+
+      const opts = createTestOpts();
+      const channel = new WhatsAppChannel(opts);
+
+      await connectChannel(channel);
+
+      await triggerMessages([
+        {
+          key: {
+            id: 'msg-video-3',
+            remoteJid: 'registered@g.us',
+            participant: '5551234@s.whatsapp.net',
+            fromMe: false,
+          },
+          message: {
+            videoMessage: { caption: 'Oops', mimetype: 'video/mp4' },
+          },
+          pushName: 'Eve',
+          messageTimestamp: Math.floor(Date.now() / 1000),
+        },
+      ]);
+
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ err: expect.any(Error), jid: 'registered@g.us' }),
+        'Video - processing failed',
+      );
+      expect(opts.onMessage).toHaveBeenCalledWith(
+        'registered@g.us',
+        expect.objectContaining({
+          content: 'Oops\n[Video - processing failed]',
+        }),
+      );
     });
   });
 
